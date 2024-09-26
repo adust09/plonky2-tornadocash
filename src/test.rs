@@ -6,13 +6,11 @@ use plonky2::{
     hash::{merkle_tree::MerkleTree, poseidon::PoseidonHash},
     plonk::config::Hasher,
 };
-use rand::rngs::OsRng;
 
 pub fn test_withdraw() -> Result<()> {
     let n = 16; // 2^4
     let tree_height = 4;
 
-    let mut rng = OsRng;
     let mut note_commitments: Vec<Digest> = Vec::new();
     let mut secret_keys: Vec<Digest> = Vec::new();
 
@@ -38,9 +36,14 @@ pub fn test_withdraw() -> Result<()> {
 
     let nullifier = PoseidonHash::hash_no_pad(&user_secret_key.to_vec()).elements;
     let merkle_root = merkle_tree.cap.0[0].elements;
-    let merkle_proof = merkle_tree.prove(user_index);
+    // let merkle_proof = merkle_tree.prove(user_index);
+    let merkle_proof = merkle_tree
+        .prove(user_index)
+        .siblings
+        .iter()
+        .map(|h| h.elements)
+        .collect::<Vec<[F; 4]>>();
 
-    // ウィズドロー証明の生成
     let proof: PlonkyProof = proof_system.generate_withdraw_proof(
         user_commitment,
         nullifier,

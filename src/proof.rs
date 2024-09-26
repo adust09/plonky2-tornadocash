@@ -53,17 +53,17 @@ impl TornadoCashProofSystem {
         let mut pw = PartialWitness::new();
 
         for i in 0..4 {
-            pw.set_target(self.targets.merkle_root.elements[i], merkle_tree_root[i]);
-            pw.set_target(self.targets.nullifier.elements[i], nullifier[i]);
+            let _ = pw.set_target(self.targets.merkle_root.elements[i], merkle_tree_root[i]);
+            let _ = pw.set_target(self.targets.nullifier.elements[i], nullifier[i]);
         }
 
         for i in 0..4 {
-            pw.set_target(self.targets.note_commitment.elements[i], note_commitment[i]);
+            let _ = pw.set_target(self.targets.note_commitment.elements[i], note_commitment[i]);
         }
 
         for (i, sibling) in merkle_proof.iter().enumerate() {
             for j in 0..4 {
-                pw.set_target(
+                let _ = pw.set_target(
                     self.targets.merkle_proof.siblings[i].elements[j],
                     sibling[j],
                 );

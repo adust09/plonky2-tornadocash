@@ -45,7 +45,7 @@ impl WithdrawCircuit {
             &merkle_proof,
         );
 
-        // Nullifierの計算: Poseidon(note_commitment || nullifier)
+        // Poseidon(note_commitment || nullifier)
         let computed_nullifier = builder.hash_n_to_hash_no_pad::<PoseidonHash>(
             vec![note_commitment.elements, nullifier.elements].concat(),
         );
