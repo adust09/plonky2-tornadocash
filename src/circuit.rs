@@ -39,18 +39,20 @@ impl WithdrawCircuit {
         let note_commitment_index = builder.add_virtual_target();
         let note_commitment_index_bit = builder.split_le(note_commitment_index, self.tree_height);
         builder.verify_merkle_proof::<PoseidonHash>(
-            note_commitment,
+            note_commitment.elements.to_vec(),
             &note_commitment_index_bit,
             merkle_root,
             &merkle_proof,
         );
 
         // Nullifierの計算: Poseidon(note_commitment || nullifier)
-        let computed_nullifier = builder.hash_n_to_hash_no_pad::<PoseidonHash>(note_commitment);
+        let computed_nullifier = builder.hash_n_to_hash_no_pad::<PoseidonHash>(
+            vec![note_commitment.elements, nullifier.elements].concat(),
+        );
 
         WithdrawCircuitTargets {
             merkle_root,
-            nullifier,
+            nullifier: computed_nullifier,
             merkle_proof,
             note_commitment,
         }
