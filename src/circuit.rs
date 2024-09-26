@@ -1,17 +1,14 @@
-use crate::types::{C, F};
+use crate::types::F;
 use plonky2::{
-    field::{packed::PackedField, types::Field},
-    hash::poseidon::PoseidonHash,
-    plonk::{circuit_builder::CircuitBuilder, config::Hasher},
+    hash::{hash_types::HashOutTarget, merkle_proofs::MerkleProofTarget, poseidon::PoseidonHash},
+    plonk::circuit_builder::CircuitBuilder,
 };
 
 pub struct WithdrawCircuitTargets {
-    pub merkle_root: [F; 4],
-    pub nullifier: [F; 4],
-    pub path_elements: Vec<[F; 4]>,
-    pub path_indices: Vec<F>,
-    pub recipient: [F; 4],
-    pub commitment: [F; 4],
+    pub merkle_root: HashOutTarget,
+    pub nullifier: HashOutTarget,
+    pub merkle_proof: MerkleProofTarget,
+    pub note_commitment: HashOutTarget,
 }
 
 pub struct WithdrawCircuit {
@@ -21,52 +18,41 @@ pub struct WithdrawCircuit {
 impl WithdrawCircuit {
     pub fn build_withdraw_circuit(
         &self,
-        builder: &mut CircuitBuilder<F, C>,
+        builder: &mut CircuitBuilder<F, 2>,
     ) -> WithdrawCircuitTargets {
         let merkle_root = builder.add_virtual_hash();
         builder.register_public_inputs(&merkle_root.elements);
 
-        let nullifier = [builder.add_virtual_target(); 4];
-        builder.register_public_inputs(&nullifier);
+        let nullifier = builder.add_virtual_hash();
+        builder.register_public_inputs(&nullifier.elements);
 
-        let recipient = [builder.add_virtual_target(); 4];
-        builder.register_public_inputs(&recipient);
+        // Merkle proof
+        let merkle_proof = MerkleProofTarget {
+            siblings: (0..self.tree_height)
+                .map(|_| HashOutTarget {
+                    elements: [builder.add_virtual_target(); 4],
+                })
+                .collect(),
+        };
 
-        let mut path_elements = Vec::new();
-        let mut path_indices = Vec::new();
-        for _ in 0..self.tree_height {
-            path_elements.push([builder.add_virtual_target(); 4]);
-            let path_index = builder.add_virtual_target();
-            path_indices.push(path_index);
-        }
+        let note_commitment = builder.add_virtual_hash();
+        let note_commitment_index = builder.add_virtual_target();
+        let note_commitment_index_bit = builder.split_le(note_commitment_index, self.tree_height);
+        builder.verify_merkle_proof::<PoseidonHash>(
+            note_commitment,
+            &note_commitment_index_bit,
+            merkle_root,
+            &merkle_proof,
+        );
 
-        let commitment = [builder.add_virtual_target(); 4];
-
-        let mut current_hash = commitment.to_vec();
-
-        for i in 0..self.tree_height {
-            let path_index = path_indices[i];
-            let is_right = builder.equal(path_index, F::from_canonical_u8(1));
-
-            let left = builder.select(is_right, path_elements[i], &current_hash[..4]);
-            let right = builder.select(is_right, &current_hash[..4], path_elements[i]);
-
-            current_hash = PoseidonHash::hash_no_pad(&[left, right].concat())
-                .elements
-                .to_vec();
-        }
-
-        for i in 0..4 {
-            builder.connect(merkle_root[i], current_hash[i]);
-        }
+        // Nullifierの計算: Poseidon(note_commitment || nullifier)
+        let computed_nullifier = builder.hash_n_to_hash_no_pad::<PoseidonHash>(note_commitment);
 
         WithdrawCircuitTargets {
-            merkle_root: [F::ZEROS; 4],
+            merkle_root,
             nullifier,
-            path_elements,
-            path_indices,
-            recipient,
-            commitment,
+            merkle_proof,
+            note_commitment,
         }
     }
 }

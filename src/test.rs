@@ -33,11 +33,6 @@ pub fn test_withdraw() -> Result<()> {
 
     let nullifier = PoseidonHash::hash_no_pad(&user_secret_key.to_vec()).elements;
 
-    let mut recipient = [F::ZEROS; 4];
-    for i in 0..4 {
-        recipient[i] = F::rand();
-    }
-
     let merkle_proof = merkle_tree.prove(user_index).unwrap();
     let siblings = merkle_proof.siblings;
 
@@ -52,7 +47,6 @@ pub fn test_withdraw() -> Result<()> {
     let proof = proof_system.generate_withdraw_proof(
         user_commitment,
         nullifier,
-        recipient,
         user_index,
         merkle_root,
         siblings,

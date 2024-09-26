@@ -38,7 +38,6 @@ impl TornadoCashProofSystem {
         &self,
         commitment: Digest,
         nullifier: Digest,
-        recipient: [F; 4],
         user_index: usize,
         merkle_tree_root: [F; 4],
         merkle_proof: Vec<Digest>,
@@ -48,7 +47,6 @@ impl TornadoCashProofSystem {
         for i in 0..4 {
             pw.set_target(self.targets.merkle_root[i], merkle_tree_root[i]);
             pw.set_target(self.targets.nullifier[i], nullifier[i]);
-            pw.set_target(self.targets.recipient[i], recipient[i]);
         }
 
         for i in 0..4 {
