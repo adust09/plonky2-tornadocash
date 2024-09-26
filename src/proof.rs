@@ -12,7 +12,6 @@ use plonky2::{
     },
 };
 
-/// Tornado Cashの証明システムを表す構造体
 pub struct TornadoCashProofSystem {
     pub circuit: WithdrawCircuit,
     pub circuit_data: CircuitData<F, C, 2>,
@@ -21,14 +20,20 @@ pub struct TornadoCashProofSystem {
 }
 
 impl TornadoCashProofSystem {
-    pub fn new(leaves: Vec<Digest>, tree_height: usize) -> Self {
+    pub fn to_verifier_data(circuit_data: &CircuitData<F, C, 2>) -> VerifierCircuitData<F, C, 2> {
+        VerifierCircuitData {
+            verifier_only: circuit_data.verifier_only.clone(),
+            common: circuit_data.common.clone(),
+        }
+    }
+    pub fn new(tree_height: usize) -> Self {
         let circuit = WithdrawCircuit { tree_height };
         let mut builder = CircuitBuilder::new(CircuitConfig::standard_recursion_zk_config());
 
         let targets = circuit.build_withdraw_circuit(&mut builder);
         let circuit_data = builder.build();
 
-        let verifier_data = VerifierCircuitData::from_circuit_data(&circuit_data).unwrap();
+        let verifier_data = Self::to_verifier_data(&circuit_data);
 
         Self {
             circuit,
@@ -42,7 +47,6 @@ impl TornadoCashProofSystem {
         &self,
         note_commitment: Digest,
         nullifier: Digest,
-        user_index: usize,
         merkle_tree_root: [F; 4],
         merkle_proof: Vec<Digest>,
     ) -> Result<PlonkyProof> {
@@ -53,14 +57,11 @@ impl TornadoCashProofSystem {
             pw.set_target(self.targets.nullifier.elements[i], nullifier[i]);
         }
 
-        // Note Commitmentの設定
         for i in 0..4 {
             pw.set_target(self.targets.note_commitment.elements[i], note_commitment[i]);
         }
 
-        // Merkle Proofの設定
         for (i, sibling) in merkle_proof.iter().enumerate() {
-            // MerkleProofTargetの兄弟ノードを設定
             for j in 0..4 {
                 pw.set_target(
                     self.targets.merkle_proof.siblings[i].elements[j],
@@ -74,7 +75,6 @@ impl TornadoCashProofSystem {
         Ok(proof_with_pis)
     }
 
-    /// ウィズドローの証明を検証
     pub fn verify_withdraw_proof(
         &self,
         proof: ProofWithPublicInputs<GoldilocksField, PoseidonGoldilocksConfig, 2>,
